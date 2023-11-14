@@ -1,0 +1,4 @@
+﻿  main.c
+C:\Users\Richie\source\repos\instruction_decoder\instruction_decoder\main.c(189,18): warning C4477: 'fscanf' : format string '%x' requires an argument of type 'unsigned int *', but variadic argument 1 has type 'unsigned char *'
+C:\Users\Richie\source\repos\instruction_decoder\instruction_decoder\main.c(189,18): message : consider using '%hhx' in the format string
+  instruction_decoder.vcxproj -> C:\Users\Richie\source\repos\instruction_decoder\x64\Debug\instruction_decoder.exe
