@@ -1,7 +1,7 @@
 #define _CRT_SECURE_NO_WARNINGS
 
 #include <stdio.h>
-
+#include <stdlib.h>
 
 #define HALT_OPCODE 0x19
 #define NOP_OPCODE 0x18
@@ -24,11 +24,13 @@
 #define MASK_MEM_MTD 0x03
 #define MASK_JMP_TYP 0x07
 
-
 void fetchNextInstruction(void);
 void executeInstruction(void);
-void incrementPC();
-void loadMemoryFile();
+void executeMathInstruction(void);
+void executeMemoryInstruction(void);
+void executeBranchInstruction(void);
+void incrementPC(void);
+void loadMemoryFile(void);
 
 unsigned char memory[65536];
 unsigned char ACC = 0;
@@ -36,6 +38,7 @@ unsigned char IR = 0;
 unsigned int MAR = 0;
 unsigned int PC = 0;
 
+unsigned int PC_old = 0;
 unsigned int PC_inc = 1;
 
 char* filename = "mem_in.txt";
@@ -47,19 +50,17 @@ int main(int argc, char* argv[])
 
 	loadMemoryFile();
 
-	/*
 	while (memory[PC] != HALT_OPCODE)
 	{
 		fetchNextInstruction();
 		executeInstruction();
-	}*/
+	}
 
 	return 0;
 }
 
 void fetchNextInstruction()
 {
-	MAR = PC;
 	IR = memory[PC]; 
 
 	incrementPC();
@@ -74,14 +75,17 @@ void executeInstruction()
 	else if ((IR & OPCODE_MASK_MTH) == OPCODE_CMP_MTH)
 	{
 		//math instruction
+		executeMathInstruction();
 	}
 	else if ((IR & OPCODE_MASK_MEM) == OPCODE_CMP_MEM)
 	{
 		//memory instruction
+		executeMemoryInstruction();
 	}
 	else if ((IR & OPCODE_MASK_JMP) == OPCODE_CMP_JMP)
 	{
 		//branch instruction
+		executeBranchInstruction();
 	}
 	else
 	{
@@ -89,19 +93,277 @@ void executeInstruction()
 	}
 }
 
-/*void executeMathInstruction()
+void executeMathInstruction()
 {
-	int* dst_ptr;
-	int src;
+		unsigned char function = (IR & MASK_MTH_FNC) >> 4;
+        unsigned char dst_code = (IR & MASK_MTH_DST) >> 2;
+        unsigned char src_code = IR & MASK_MTH_SRC;
+		//int* dst_ptr;
+		int src;
 
-	src = 1;
+		switch (src_code)
+		{
+		case 0:
+			src = (unsigned char) memory[MAR];  // Indirect 
+			break;
+		case 1:
+			src = (unsigned char) ACC;  // Accumulator
+			break;
+		case 2:
+			//Constant
+			if (dst_code == 0b10)
+			{
+				src = (unsigned short int) ((memory[PC_old + 1] & BYTE_MASK) << 8) + (memory[PC_old + 2] & BYTE_MASK);
+			}
+			else
+			{
+				src = (unsigned char) memory[PC_old + 1] & BYTE_MASK;
+			}
 
-	switch (src)
+			break;
+		case 3:
+			src = (unsigned char )memory[((memory[PC_old + 1] & BYTE_MASK) << 8) + (memory[PC_old + 2] & BYTE_MASK)];  // Memory 
+			break;
+		default:
+			src = NULL;
+			break;
+		}
+
+		//need different pointer type for destination depending on destination
+		if (dst_code == 0b10)
+		{
+			unsigned short int* dst_ptr = &MAR;
+
+			switch (function)
+			{
+			case 0:  // AND
+				*dst_ptr &= src;
+				break;
+			case 1:  // OR
+				*dst_ptr |= src;
+				break;
+			case 2:  // XOR
+				*dst_ptr ^= src;
+				break;
+			case 3:  // ADD
+				*dst_ptr += src;
+				break;
+			case 4:  // SUB
+				*dst_ptr -= src;
+				break;
+			case 5:  // INC
+				*dst_ptr += 1;
+				break;
+			case 6:  // DEC
+				*dst_ptr -= 1;
+				break;
+			case 7:  // NOT
+				*dst_ptr = ~src;
+				break;
+			default:
+				// error
+				break;
+			}
+		}
+		else
+		{
+			unsigned char* dst_ptr;
+			switch (dst_code)
+			{
+			case 0:
+				dst_ptr = &memory[MAR];  // Indirect 
+				break;
+			case 1:
+				dst_ptr = (short int*)&ACC;  // Accumulator
+				break;
+			case 3:
+				dst_ptr = &memory[((memory[PC_old + 1] & BYTE_MASK) << 8) + (memory[PC_old + 2] & BYTE_MASK)];  // Memory
+				break;
+			default:
+				dst_ptr = NULL;
+				break;
+			}
+
+
+			switch (function)
+			{
+			case 0:  // AND
+				*dst_ptr &= src;
+				break;
+			case 1:  // OR
+				*dst_ptr |= src;
+				break;
+			case 2:  // XOR
+				*dst_ptr ^= src;
+				break;
+			case 3:  // ADD
+				*dst_ptr += src;
+				break;
+			case 4:  // SUB
+				*dst_ptr -= src;
+				break;
+			case 5:  // INC
+				*dst_ptr += 1;
+				break;
+			case 6:  // DEC
+				*dst_ptr -= 1;
+				break;
+			case 7:  // NOT
+				*dst_ptr = ~src;
+				break;
+			default:
+				// error
+				break;
+			}
+		}
+}
+
+
+//STORE - REGISTER TO MEMORY
+//LOAD - MEMORY TO REGISTER 
+void executeMemoryInstruction()
+{
+	unsigned char function = (IR & MASK_MEM_FNC) >> 3;
+	unsigned char reg_code = (IR & MASK_MEM_RGT) >> 2;
+	unsigned char mtd_code = IR & MASK_MEM_MTD;
+
+	//int* reg_ptr;
+	//int mtd;
+
+	if (reg_code == 0b0)
 	{
+		//ACC
+		unsigned char* reg_ptr = &ACC;
+		unsigned char* mtd_ptr = 0;
+
+		//get method
+		switch (mtd_code)
+		{
+		case 0:
+			mtd_ptr = (unsigned char*) &memory[((memory[PC_old + 1] & BYTE_MASK) << 8) + (memory[PC_old + 2] & BYTE_MASK)];
+			break;
+		case 1:
+			mtd_ptr = (unsigned char*)malloc(sizeof(unsigned char));
+
+
+			*mtd_ptr = (unsigned char)memory[PC_old + 1] & BYTE_MASK;;
+			break;
+		case 2:
+			mtd_ptr = (unsigned char*) &memory[MAR];
+			break;
+		default:
+			break;
+		}
+
+
+		//load or store
+		if (function == 0b0)
+		{
+			//store
+			*mtd_ptr = *reg_ptr;
+		}
+		else if (function == 0b1)
+		{
+			*reg_ptr = *mtd_ptr;
+		}
+	}
+	else if(reg_code == 0b1)
+	{
+		//MAR 
+		unsigned short int* reg_ptr = &MAR;
+		unsigned short int* mtd_ptr = 0; 
+
+		switch (mtd_code)
+		{
+		case 0:
+			mtd_ptr = (unsigned short int*)&memory[((memory[PC_old + 1] & BYTE_MASK) << 8) + (memory[PC_old + 2] & BYTE_MASK)];
+			break;
+		case 1:
+			mtd_ptr = (unsigned short int*)malloc(sizeof(unsigned short int));
+
+			*mtd_ptr = (unsigned short int) ((memory[PC_old + 1] & BYTE_MASK) << 8) + (memory[PC_old + 2] & BYTE_MASK);
+			break;
+		case 2:
+			mtd_ptr = (unsigned short int*)memory[MAR];
+			break;
+		default:
+			break;
+		}
+
+		//load or store
+		if (function == 0b0)
+		{
+			//store
+			//SPECIAL CASE: due to weird endianess mixing, have to store it in reverse order
+			unsigned char* mtd_ptr_chr = (unsigned char*)mtd_ptr;
+			*mtd_ptr_chr = (unsigned char) ((*reg_ptr & (BYTE_MASK << 8)) >> 8);
+			*(mtd_ptr_chr + 1) = (unsigned char)(*reg_ptr & BYTE_MASK);
+			
+		}
+		else if (function == 0b1)
+		{
+			*reg_ptr = *mtd_ptr;
+		}
+	}
+}
+
+void executeBranchInstruction()
+{
+	unsigned int jmp_code = (IR & MASK_JMP_TYP);
+	unsigned int jmp_address = (memory[PC_old + 1] << 8) + (memory[PC_old + 2]);
+
+	switch (jmp_code)
+	{
+	case 0b000:
+		//unconditional branch
+		PC = jmp_address;
+		break;
+	case 0b001:
+		//branch if acc = 0
+		if (ACC == 0)
+		{
+			PC = jmp_address;
+		}
+		break;
+	case 0b010:
+		//branch if acc != 0
+		if (ACC != 0)
+		{
+			PC = jmp_address;
+		}
+		break;
+	case 0b011:
+		//branch if acc < 0
+		if (ACC < 0)
+		{
+			PC = jmp_address;
+		}
+		break;
+	case 0b100:
+		//branch if acc <= 0
+		if (ACC <= 0)
+		{
+			PC = jmp_address;
+		}
+		break;
+	case 0b101:
+		//branch if acc > 0
+		if (ACC > 0)
+		{
+			PC = jmp_address;
+		}
+		break;
+	case 0b110:
+		//branch if acc >= 0
+		if (ACC >= 0)
+		{
+			PC = jmp_address;
+		}
+		break;
 	default:
 		break;
 	}
-}*/
+}
 
 void incrementPC()
 {
@@ -162,6 +424,7 @@ void incrementPC()
 		//bad instruction
 	}
 
+	PC_old = PC;
 	PC += PC_inc;
 	PC_inc = 1;		//make sure to reset increment value
 }
@@ -183,14 +446,16 @@ void loadMemoryFile()
 
 	int i = 0;
 	int loop = 1;
+	int temp = 0;
 
 	while (!feof(fp) && (loop == 1))
 	{
-		if (fscanf(fp, "%x", memory+i) != 1)
+		if (fscanf(fp, "%x", &temp) != 1)
 		{
 			loop = 0;
 		}
-		i++;
+		temp &= BYTE_MASK;
+		memory[i++] = (char)temp;
 	}
 
 	fclose(fp);

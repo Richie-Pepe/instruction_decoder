@@ -1,4 +1,6 @@
 ﻿  main.c
-C:\Users\Richie\source\repos\instruction_decoder\instruction_decoder\main.c(189,18): warning C4477: 'fscanf' : format string '%x' requires an argument of type 'unsigned int *', but variadic argument 1 has type 'unsigned char *'
-C:\Users\Richie\source\repos\instruction_decoder\instruction_decoder\main.c(189,18): message : consider using '%hhx' in the format string
+C:\Users\Richie\source\repos\instruction_decoder\instruction_decoder\main.c(128,8): warning C4047: '=': 'int' differs in levels of indirection from 'void *'
+C:\Users\Richie\source\repos\instruction_decoder\instruction_decoder\main.c(177,13): warning C4133: '=': incompatible types - from 'short *' to 'unsigned char *'
+C:\Users\Richie\source\repos\instruction_decoder\instruction_decoder\main.c(135,24): warning C4133: 'initializing': incompatible types - from 'unsigned int *' to 'unsigned short *'
+C:\Users\Richie\source\repos\instruction_decoder\instruction_decoder\main.c(278,23): warning C4133: 'initializing': incompatible types - from 'unsigned int *' to 'unsigned short *'
   instruction_decoder.vcxproj -> C:\Users\Richie\source\repos\instruction_decoder\x64\Debug\instruction_decoder.exe
